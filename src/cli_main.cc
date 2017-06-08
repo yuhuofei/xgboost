@@ -58,6 +58,8 @@ struct CLIParam : public dmlc::Parameter<CLIParam> {
   int dsplit;
   /*!\brief limit number of trees in prediction */
   int ntree_limit;
+  /*!\brief whether to output leaf index */
+  bool pred_leaf;
   /*!\brief whether to directly output margin value */
   bool pred_margin;
   /*! \brief whether dump statistics along with model */
@@ -325,15 +327,29 @@ void CLIPredict(const CLIParam& param) {
     LOG(CONSOLE) << "start prediction...";
   }
   std::vector<bst_float> preds;
-  learner->Predict(dtest.get(), param.pred_margin, &preds, param.ntree_limit);
+  learner->Predict(dtest.get(), param.pred_margin, &preds, param.ntree_limit,param.pred_leaf);
   if (param.silent == 0) {
     LOG(CONSOLE) << "writing prediction to " << param.name_pred;
   }
   std::unique_ptr<dmlc::Stream> fo(
       dmlc::Stream::Create(param.name_pred.c_str(), "w"));
   dmlc::ostream os(fo.get());
+  // print leaf index by test case * tree.size
+  int tmp;
+  if (param.ntree_limit == 0 ) { 
+    tmp = param.num_round;
+  } else {
+    tmp = param.num_round > param.ntree_limit? param.ntree_limit: param.num_round;
+  }
+  int i = 0;
   for (bst_float p : preds) {
-    os << p << '\n';
+    i = (i+1) % tmp;
+    os << p;
+    if( i == 0 ) { 
+       os << '\n';
+    } else {
+      os << ' ';
+    }
   }
   // force flush before fo destruct.
   os.set_stream(nullptr);
